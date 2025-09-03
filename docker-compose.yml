@@ -54,8 +54,6 @@ services:
       - DB_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "8050:8050"
-    # ---- CRITICAL CHANGE HERE ----
-    # We call gunicorn directly as it's in the PATH
     command: gunicorn -w 4 -b 0.0.0.0:8050 src.app.main:server
     networks:
       - app_network
