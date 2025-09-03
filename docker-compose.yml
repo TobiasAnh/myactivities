@@ -1,0 +1,76 @@
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  # 1. The Database Service
+  postgres:
+    image: postgres:15.3-alpine
+    container_name: postgres
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - app_network
+
+  # 2. The Data Analysis Service
+  data_fetch:
+    build: ./data_fetch/
+    container_name: data_fetch
+    # restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: python src/app/main.py
+    networks:
+      - app_network
+      
+  # 3. The Dashboard Web Service
+  data_viz:
+    build: ./data_viz/
+    container_name: data_viz
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - cloudflared
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "8050:8050"
+    # ---- CRITICAL CHANGE HERE ----
+    # We call gunicorn directly as it's in the PATH
+    command: gunicorn -w 4 -b 0.0.0.0:8050 src.app.main:server
+    networks:
+      - app_network
+      
+  # 4. The Cloudflare Tunnel Service
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run data_viz
+    volumes:
+      - ./cloudflared:/etc/cloudflared
+    networks:
+      - app_network
+
+# Define a named volume to persist postgres data
+volumes:
+  postgres_data:
