@@ -220,15 +220,8 @@ app.layout = html.Div(
                         [
                             "Source code dashboard: ",
                             html.A(
-                                "https://github.com/TobiasAnh/strava_dash",
-                                href="https://github.com/TobiasAnh/strava_dash",
-                                target="_blank",  # This opens the link in a new tab
-                            ),
-                            " | ",
-                            "Source code underlying data pipeline: ",
-                            html.A(
-                                "https://github.com/TobiasAnh/strava_analysis",
-                                href="https://github.com/TobiasAnh/strava_analysis",
+                                "https://github.com/TobiasAnh/myactivities",
+                                href="https://github.com/TobiasAnh/myactivities",
                                 target="_blank",  # This opens the link in a new tab
                             ),
                         ],
