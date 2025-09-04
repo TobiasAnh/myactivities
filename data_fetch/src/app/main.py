@@ -8,6 +8,7 @@ from app.utils import (
     get_tokens,
     get_engine,
     get_athlete_info,
+    get_latest_datetime,
     get_activities,
 )
 
@@ -43,45 +44,40 @@ def main(mode):
     athlete = get_athlete_info(ACCESS_TOKEN)
 
     # ATHLETE
-    # df = pd.DataFrame.from_dict(athlete, orient="index").T
-    # df = df.rename(columns={"id": "athlete_id"})
-    # df = df.set_index("athlete_id")
-    # engine = get_engine()
-    # df.to_sql(
-    #     "athlete",
-    #     con=engine,
-    #     if_exists="replace",
-    #     index=True,
-    # )
+    df = pd.DataFrame.from_dict(athlete, orient="index").T
+    df = df.rename(columns={"id": "athlete_id"})
+    df = df.set_index("athlete_id")
+    engine = get_engine()
+    df.to_sql(
+        "athlete",
+        con=engine,
+        if_exists="replace",
+        index=True,
+    )
 
-    # # ACTIVITIES
-    # start_unix = get_latest_datetime("start_date", "activities")
-    # activities = get_activities(
-    #     ACCESS_TOKEN,
-    #     athlete,
-    #     start_unix=start_unix,
-    # )
+    # ACTIVITIES
+    start_unix = get_latest_datetime("start_date", "activities")
+    activities = get_activities(
+        ACCESS_TOKEN,
+        athlete,
+        start_unix=start_unix,
+    )
 
-    # if not activities:
-    #     return
-    # df = pd.DataFrame(activities)
+    if not activities:
+        return
+    df = pd.DataFrame(activities)
 
-    # df[["map_id", "summary_polyline", "map_resource_state"]] = df["map"].apply(
-    #     pd.Series
-    # )
-    # df = df.rename(columns={"type": "activities_type", "id": "activity_id"})
-    # df = df.drop(["map"], axis=1)
+    df[["map_id", "summary_polyline", "map_resource_state"]] = df["map"].apply(
+        pd.Series
+    )
+    df = df.rename(columns={"type": "activities_type", "id": "activity_id"})
+    df = df.drop(["map"], axis=1)
 
-    # # NOTE for some reason, the .to_sql only works when saving and reloading the csv.
-    # # Save and load csv
-    # df.to_csv("activities.csv", index=False)
-    # df = pd.read_csv(
-    #     "activities.csv",
-    #     index_col="activity_id",
-    # )
-
+    # NOTE for some reason, the .to_sql only works when saving and reloading the csv.
+    # Save and load csv
+    df.to_csv("activities.csv", index=False)
     df = pd.read_csv(
-        "src/app/activities.csv",
+        "activities.csv",
         index_col="activity_id",
     )
 
@@ -91,7 +87,7 @@ def main(mode):
         df.to_sql(
             "activities",
             con=engine,
-            if_exists="replace",  # TODO switch in production back to append
+            if_exists="append",
             index=True,
         )
     except ValueError as e:

@@ -104,9 +104,6 @@ def get_activities(access_token, athlete, start_unix=None):
         logger.info(f"Found {page} pages of activities.")
         page += 1
 
-        # TODO break just temporarily
-        break
-
     if not activities:
         logger.info("No recent activities found. Database seems up to date!")
     else:

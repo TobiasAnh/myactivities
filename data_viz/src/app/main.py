@@ -26,7 +26,7 @@ end_date = pd.to_datetime(f"{current_year}-12-31")
 days_in_year = (end_date - start_date).days + 1
 
 # Define annual distance goal
-total_goal_distance = 8000  # TODO Hardcoded
+total_goal_distance = 8000  # NOTE Hardcoded
 daily_distance_goal = total_goal_distance / days_in_year  # km/day
 goal_dates = pd.date_range(start_date, end_date, freq="D")
 goal_distances = daily_distance_goal * (goal_dates - start_date).days
@@ -34,11 +34,11 @@ goal_distances = daily_distance_goal * (goal_dates - start_date).days
 
 # Connect and fetch data from psql
 engine = get_engine()
-# athlete = fetch_data(
-#     engine,
-#     "SELECT * FROM athlete",
-#     index_col="athlete_id",
-# )
+athlete = fetch_data(
+    engine,
+    "SELECT * FROM athlete",
+    index_col="athlete_id",
+)
 
 activities = fetch_data(
     engine,
@@ -165,8 +165,7 @@ app.layout = html.Div(
                 dbc.Row(
                     dbc.Col(
                         html.H3(
-                            "TOBE",  # TODO change in production
-                            # f"Strava activities of {athlete['firstname'].values}",
+                            f"Strava activities of {athlete['firstname'].values}",
                             style={"text-align": "center"},
                         ),
                     )
