@@ -1,6 +1,7 @@
 # own
 *.csv
 *.json
+.html
 /cloudflared/
 
 # Byte-compiled / optimized / DLL files
