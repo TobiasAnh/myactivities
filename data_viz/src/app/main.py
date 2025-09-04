@@ -46,6 +46,9 @@ activities = fetch_data(
     "activity_id",
 )
 
+activities = activities.drop_duplicates()
+
+
 # Tidy up activities dataframe
 activities["start_date"] = pd.to_datetime(activities["start_date"])
 activities = activities.sort_values("start_date", ascending=False)
@@ -56,12 +59,16 @@ activities_ready["name"] = activities_ready["name"].apply(
 
 
 # Get cumulative distance for each year
+activities_ready = activities_ready.reset_index()
 activities_ready["start_year"] = activities_ready["start_date"].dt.year
 activities_ready["annual_cumulative_distance"] = (
     activities_ready.sort_values("start_date")
     .groupby("start_year")["distance"]
     .cumsum()
 )
+activities_ready = activities_ready.set_index("activity_id")
+
+
 # Creating df of annual summaries
 annual_summaries = activities.groupby(
     activities["start_date"].dt.tz_convert(None).dt.to_period("Y")
@@ -141,7 +148,7 @@ generate_folium_map(
     activities.head(1),
     "src/heatmaps/last_activity.html",
     "Last activity",
-    zoom_start=12,
+    12,
     lat_lon="auto",
 )
 

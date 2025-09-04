@@ -172,13 +172,14 @@ def generate_folium_map(
         marker_opacity (float): opacity of marker used for heatmap
     """
 
+    activities = activities.copy()
+
     if lat_lon == "auto":
 
         latitudes = []
         longitudes = []
         for coords in ["start_latlng", "end_latlng"]:
             # Convert string to list and convert start coords
-            activities = activities.copy()
             activities[coords] = activities[coords].apply(ast.literal_eval)
 
             latitudes.append(activities[coords].apply(lambda x: x[0]).to_list())
@@ -201,12 +202,18 @@ def generate_folium_map(
 
     for activity in activities.index:
         activity_data = activities.loc[activity]
-        if not activity_data["summary_polyline"]:
-            # print(f"No polyline found for {activity_data['name']}, {activity_data['start_date']}")
+        activity_polyline = activity_data["summary_polyline"]
+
+        try:
+            coordinates = polyline.decode(activity_polyline)
+        except Exception as e:
+            print(f"Error decoding polyline")
+            print(f"Error details: {e}")
+            print()
+            print(activity)
+            print()
             continue
 
-        activity_polyline = activity_data["summary_polyline"]
-        coordinates = polyline.decode(activity_polyline)
         sport_type = activity_data["sport_type"]
 
         # Determine the color based on sport type
