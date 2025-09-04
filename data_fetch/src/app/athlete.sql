@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS athlete (
+    athlete_id BIGINT PRIMARY KEY,
+    username TEXT,
+    resource_state TEXT,
+    firstname TEXT,
+    lastname TEXT,
+    bio TEXT,
+    city TEXT,
+    state TEXT,
+    country TEXT,
+    sex TEXT,
+    premium BOOLEAN,
+    summit BOOLEAN,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
+    badge_type_id INTEGER,
+    weight DECIMAL(5, 2),
+    profile_medium TEXT,
+    profile TEXT,
+    friend BOOLEAN,
+    follower BOOLEAN
+);
