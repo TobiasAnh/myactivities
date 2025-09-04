@@ -15,9 +15,6 @@ RUN curl -sSL https://install.python-poetry.org | python3 -
 # We explicitly tell Poetry to create the virtualenv inside the project directory.
 ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 
-# ---- CRITICAL CHANGE HERE ----
-# We copy all project files before the `poetry install` command.
-COPY README.md .
 COPY pyproject.toml poetry.lock ./
 COPY src ./src
 
