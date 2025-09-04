@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run data_viz
     volumes:
-      - ./cloudflared:/etc/cloudflared
+      - /home/rasp/.cloudflared:/etc/cloudflared
     networks:
       - app_network
 
