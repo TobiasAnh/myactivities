@@ -1,7 +1,7 @@
 # own
 *.csv
 *.json
-.html
+/heatmaps/*.html
 /cloudflared/
 
 # Byte-compiled / optimized / DLL files
