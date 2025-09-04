@@ -10,12 +10,11 @@ This repository provides a complete Dockerized setup for a **data pipeline and v
 
 2. **Data Fetch (ETL Service)**  
    - Custom Python service (`./data_fetch/`).  
-   - Fetches and processes external data.  
+   - Fetches and processes external activity data from the STRAVA API.  
    - Loads results into the PostgreSQL database.  
 
 3. **Data Viz (Dashboard)**  
-   - Custom Python web dashboard (`./data_viz/`).  
-   - Runs on **Gunicorn** with 4 workers.  
+   - Custom Python web dashboard (`./data_viz/`).   
    - Exposed locally on [http://localhost:8050](http://localhost:8050).  
 
 4. **Cloudflared Tunnel Service (Optional) **  
