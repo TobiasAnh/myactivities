@@ -22,11 +22,11 @@ load_dotenv(dotenv_path)
 
 columns_shorter = [
     "start_date",
-    "activities_type",
+    "sport_type",
     "name",
     "distance",
     "moving_time",
-    "elapsed_time",
+    # "elapsed_time",
     "total_elevation_gain",
     "average_speed",
     "max_speed",
@@ -39,14 +39,13 @@ columns_short = [
     "moving_time",
     "elapsed_time",
     "total_elevation_gain",
-    "activities_type",
     "sport_type",
     "start_date",
-    "start_date_local",
-    "achievement_count",
-    "kudos_count",
-    "athlete_count",
-    "photo_count",
+    # "start_date_local",
+    # "achievement_count",
+    # "kudos_count",
+    # "athlete_count",
+    # "photo_count",
     "start_latlng",
     "end_latlng",
     "average_speed",
@@ -59,11 +58,33 @@ columns_short = [
     "kilojoules",
     "elev_high",
     "elev_low",
-    "pr_count",
-    "total_photo_count",
-    "map_id",
-    "summary_polyline",
+    # "pr_count",
+    # "total_photo_count",
+    # "map_id",
+    # "summary_polyline",
 ]
+
+col_rename_dict = {
+    "start_date": "Date",
+    "activities_type": "Type",
+    "sport_type": "Type",
+    "name": "Name",
+    "total_distance": "Distance [km]",
+    "distance": "Distance [km]",
+    "total_moving_time": "Moving time",
+    "moving_time": "Moving time",
+    "total_elevation_gain": "Elevation [m]",
+    "average_speed": "Avg. speed [km/h]",
+    "max_speed": "Max. speed [km/h]",
+    "n_activities": "Activities (n)",
+    "average_speed_weighted": "Wt. avg. speed [km/h]",
+}
+
+# TODO is mapped two times (see also legend below)
+activity_mapping = {
+    "Ride": "Road bike",
+    "MountainBikeRide": "MTB",
+}
 
 
 def get_engine():
@@ -236,9 +257,17 @@ def generate_folium_map(
         # Add the color and label to our legend dictionary if it's not already there
         legend_items[label] = color
 
+        # Popup/tooltip
+        date_str = str(activity_data["start_date"])[:10]
+        popup_tooltip = f"{date_str} | {activity_data['name']}"
         # Add a PolyLine to connect the coordinates
         folium.PolyLine(
-            coordinates, color=color, weight=2.5, opacity=marker_opacity
+            coordinates,
+            popup=popup_tooltip,
+            tooltip=popup_tooltip,
+            color=color,
+            weight=2.5,
+            opacity=marker_opacity,
         ).add_to(mymap)
 
     # --- Create the custom legend HTML ---
@@ -293,7 +322,7 @@ def convert_units(df, rounding_digits=0):
         df[distance_col] = round(df[distance_col] / 1000, rounding_digits)
 
     # Convert moving_time (seconds) to timedelta and then to minutes, overwrite the column
-    time_cols = findColumns(df, "time")
+    time_cols = findColumns(df, "_time")
     for time_col in time_cols:
         df[time_col] = pd.to_timedelta(df[time_col], unit="s")
         df[time_col] = df[time_col].apply(
@@ -301,7 +330,7 @@ def convert_units(df, rounding_digits=0):
         )
 
     # Convert speed from m/s to km/h and overwrite the columns
-    speed_cols = findColumns(df, "speed")
+    speed_cols = findColumns(df, "_speed")
     for speed_col in speed_cols:
         df[speed_col] = round(df[speed_col] * 3.6, rounding_digits)
 
