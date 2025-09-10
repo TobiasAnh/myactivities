@@ -1,5 +1,6 @@
 import dash
 import dash_bootstrap_components as dbc
+import plotly.io as pio
 import plotly.express as px
 import pandas as pd
 import logging
@@ -70,6 +71,16 @@ activities_ready["annual_cumulative_distance"] = (
     .cumsum()
 )
 activities_ready = activities_ready.set_index("activity_id")
+activities_ready = activities_ready.copy()
+activities_ready["start_date_current_year"] = activities_ready["start_date"].apply(
+    lambda x: x.replace(year=current_year)
+)
+
+activities_ready["CURRENT_YEAR"] = current_year
+activities_ready[
+    ["start_year", "start_date", "start_date_current_year", "CURRENT_YEAR"]
+]
+
 
 # Creating df of annual summaries
 annual_cycling = activities[
@@ -98,17 +109,37 @@ annual_cycling["start_date"] = annual_cycling["start_date"].astype(str).astype(i
 annual_cycling = annual_cycling.sort_values("start_date", ascending=False)
 annual_cycling_viz = annual_cycling.rename(columns=col_rename_dict)
 
+# Final cleaning of table column (needs to be after generating cumulative distance)
+activities_viz = activities_ready.copy()
+activities_viz["start_date"] = activities_viz["start_date"].dt.strftime("%B %d, %Y")
+activities_viz["sport_type"] = activities_viz["sport_type"].replace(activity_mapping)
+activities_viz = activities_viz[columns_shorter]
+activities_viz = activities_viz.rename(columns=col_rename_dict)
+
+
 # Creating graphs
-# Line graph of cumulative distance per year
+pio.templates.default = "simple_white"  # # set plotly template
+
+# Line graph of cumulative distance (current year)
 fig_annual_cumsum = px.line(
-    activities_ready.query(
-        "start_year == @current_year",
-    ).query("sport_type == 'Ride'"),
-    x="start_date",  # Adjust column name if needed
+    activities_ready.query("sport_type in ['Ride', 'MountainBikeRide', 'VirtualRide']"),
+    x="start_date_current_year",
     y="annual_cumulative_distance",
-    # color="start_year",  # Adjust this to a numeric column you want to plot
-    # title=f"Cumulate km of rides for {current_year}",
+    color="start_year",
+    color_discrete_sequence=px.colors.qualitative.G10,
+    hover_data=["start_year", "annual_cumulative_distance"],
 )
+
+# Adding line graph of cumulative distance (all previous years)
+
+# fig_annual_cumsum.add_scatter(
+#     x=activities_ready.query("start_year == @current_year")["start_date_current_year"],
+#     y=activities_ready.query("start_year == @current_year")[
+#         "annual_cumulative_distance"
+#     ],
+#     mode="lines",
+#     line=dict(color=px.colors.sequential.Blues[-1]),
+# )
 
 fig_annual_cumsum.update_layout(
     xaxis=dict(
@@ -117,14 +148,16 @@ fig_annual_cumsum.update_layout(
         tickformat="%b",  # Show month abbreviations on the x-axis
         tickmode="array",  # Specify custom ticks
         tickvals=pd.date_range(
-            start=start_date, end=end_date, freq="MS"
+            start=start_date,
+            end=end_date,
+            freq="MS",
         ),  # First of every month
         ticktext=[
             date.strftime("%b")
             for date in pd.date_range(start=start_date, end=end_date, freq="MS")
         ],  # Month names
     ),
-    yaxis=dict(title=f"Cumulative Distance (km) in {current_year}"),
+    yaxis=dict(title=f"Annual cumulative Distance (km)"),
     legend=dict(
         x=0.03,  # Place at the right side of the plot area
         y=0.95,  # Place at the bottom side of the plot area
@@ -133,13 +166,13 @@ fig_annual_cumsum.update_layout(
     ),
 )
 
-fig_annual_cumsum.add_scatter(
-    x=goal_dates,  # The date range for the goal
-    y=goal_distances,  # The cumulative goal distance
-    mode="lines",
-    name=f"Reference line for annual aim ({total_goal_distance} km)",  # Label for the goal line
-    line=dict(color="grey", dash="dash"),  # Customize the line style (red, dashed)
-)
+# fig_annual_cumsum.add_scatter(
+#     x=goal_dates,  # The date range for the goal
+#     y=goal_distances,  # The cumulative goal distance
+#     mode="lines",
+#     name=f"Reference line for annual aim ({total_goal_distance} km)",  # Label for the goal line
+#     line=dict(color="grey", dash="dash"),  # Customize the line style (red, dashed)
+# )
 
 # Creating heatmap
 generate_folium_map(
@@ -155,16 +188,8 @@ generate_folium_map(
     "last_activity.html",
     "Last activity",
     12,
-    lat_lon="auto",
+    lat_lon="auto",  # TODO does not work yet, its not centered correctly
 )
-
-
-# Final cleaning of table column (needs to be after generating cumulative distance)
-activities_viz = activities_ready.copy()
-activities_viz["start_date"] = activities_viz["start_date"].dt.strftime("%B %d, %Y")
-activities_viz["sport_type"] = activities_viz["sport_type"].replace(activity_mapping)
-activities_viz = activities_viz[columns_shorter]
-activities_viz = activities_viz.rename(columns=col_rename_dict)
 
 
 # Initialize the Dash app
@@ -335,7 +360,7 @@ def render_content(tab):
                 dcc.Graph(
                     id="annual_summary_graph",
                     figure=fig_annual_cumsum,
-                    style={"width": "100%", "height": "400px"},
+                    style={"width": "100%", "height": "600px"},
                 ),
                 dash_table.DataTable(
                     id="table_annual_summaries",
@@ -348,7 +373,7 @@ def render_content(tab):
                     # sort_action="native",
                     # filter_action="native",
                     page_action="native",
-                    page_size=100,  # Show 5 rows per page
+                    page_size=5,  # Show 5 rows per page
                 ),
             ]
         )
@@ -356,6 +381,4 @@ def render_content(tab):
 
 # Run the app
 if __name__ == "__main__":
-    app.run_server(
-        host="0.0.0.0", port=8050, debug=False
-    )  # TODO set debug = False in production
+    app.run_server(host="0.0.0.0", port=8050, debug=False)
