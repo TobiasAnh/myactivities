@@ -51,6 +51,7 @@ activities = fetch_data(
 
 # NOTE only for local development import
 # activities = pd.read_csv("data_fetch/src/app/activities.csv", index_col="activity_id")
+
 activities = activities.drop_duplicates()
 activities["start_date"] = pd.to_datetime(activities["start_date"])
 activities = activities.sort_values("start_date", ascending=False)
@@ -180,15 +181,16 @@ generate_folium_map(
     "heatmap_all_activities.html",
     "Sport type",
     5,
-    (49.37, 8.78),  # Heidelberg
+    "median",
+    # (49.37, 8.78),  # Heidelberg
 )
 
 generate_folium_map(
     activities.head(1),
     "last_activity.html",
     "Last activity",
-    12,
-    lat_lon="auto",  # TODO does not work yet, its not centered correctly
+    11,
+    "last",
 )
 
 

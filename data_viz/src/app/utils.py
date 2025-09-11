@@ -177,45 +177,68 @@ def generate_folium_map(
     file_name,
     legend_name,
     zoom_start,
-    lat_lon="auto",
+    lat_lon="last",
     marker_opacity=0.5,
 ):
     """
-    Generate an interactive Folium map of activities. Plots activity routes
-    from encoded polylines with sport-specific colors and adds a legend
-    based on sport type.
+    Generate an interactive Folium map of activities. Saves it as .html file in root repo.
+
+    Plots activity routes from encoded polylines with sport-specific colors
+    and adds a legend based on sport type.
 
     Parameters:
-        activities (DataFrame): Activity data with 'summary_polyline' and
-                                'sport_type' columns.
-        lat_long (tuple): Tuple of latitude and longitude coordinates
-        file_name (str): name of produced html file
-        marker_opacity (float): opacity of marker used for heatmap
+        activities (DataFrame): Activity data containing at least
+            'summary_polyline' and 'sport_type' columns.
+        file_name (str): Name of the output HTML file.
+        legend_name (str): Title for the legend.
+        zoom_start (int): Initial zoom level of the map.
+        lat_lon (tuple[float, float] | str, optional): Map center.
+            - Provide a (latitude, longitude) tuple to set manually.
+            - Use "median" to center on the median location of all activities.
+            - Use "last" (default) to center on the most recent activity.
+        marker_opacity (float, optional): Opacity of heatmap markers.
+            Defaults to 0.5.
     """
 
     activities = activities.copy()
 
-    if lat_lon == "auto":
+    # Check coordinates
+    if lat_lon == "median":
+        activities["start_latlng"] = activities["start_latlng"].apply(ast.literal_eval)
+        lats = (
+            activities["start_latlng"]
+            .apply(lambda x: x[0] if isinstance(x, list) and len(x) == 2 else None)
+            .to_list()
+        )
+        lons = (
+            activities["start_latlng"]
+            .apply(lambda x: x[1] if isinstance(x, list) and len(x) == 2 else None)
+            .to_list()
+        )
+        lat_lon = (np.nanmedian(lats), np.nanmedian(lons))
 
-        latitudes = []
-        longitudes = []
-        for coords in ["start_latlng", "end_latlng"]:
-            # Convert string to list and convert start coords
-            activities[coords] = activities[coords].apply(ast.literal_eval)
+    elif lat_lon == "last":
+        coordinates = polyline.decode(activities["summary_polyline"].iloc[0])
+        lats = [lat for lat, lon in coordinates]
+        lons = [lon for lat, lon in coordinates]
+        lat_lon = (np.nanmean(lats), np.nanmean(lons))
 
-            latitudes.append(activities[coords].apply(lambda x: x[0]).to_list())
-            longitudes.append(activities[coords].apply(lambda x: x[1]).to_list())
+    elif (
+        isinstance(lat_lon, tuple)
+        and len(lat_lon) == 2
+        and all(isinstance(x, (int, float)) for x in lat_lon)
+    ):
+        lat_lon = lat_lon
 
-        # Calculate mean
-        average_lat = np.mean(latitudes)
-        average_lon = np.mean(longitudes)
     else:
-        average_lat, average_lon = lat_lon
+        logger.info(
+            "lat_lon argument set incorrectly. Pleae provide tuple with numeric coordinates or 'average' or 'last'"
+        )
 
     mymap = folium.Map(
-        location=[average_lat, average_lon],
-        zoom_start=zoom_start,
+        location=lat_lon,
         tiles="CartoDB Positron",  # map style
+        zoom_start=zoom_start,
     )
 
     # Dictionary to hold the colors and labels for the legend
