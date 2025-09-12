@@ -15,6 +15,8 @@ from app.utils import (
     fetch_data,
     convert_units,
     generate_folium_map,
+    get_metric_card,
+    get_speedometer,
 )
 
 # Set up logging
@@ -29,10 +31,10 @@ end_date = pd.to_datetime(f"{current_year}-12-31")
 days_in_year = (end_date - start_date).days + 1
 
 # Define annual distance goal
-total_goal_distance = 8000  # NOTE Hardcoded
-daily_distance_goal = total_goal_distance / days_in_year  # km/day
-goal_dates = pd.date_range(start_date, end_date, freq="D")
-goal_distances = daily_distance_goal * (goal_dates - start_date).days
+# total_goal_distance = 8000  # NOTE Hardcoded
+# daily_distance_goal = total_goal_distance / days_in_year  # km/day
+# goal_dates = pd.date_range(start_date, end_date, freq="D")
+# goal_distances = daily_distance_goal * (goal_dates - start_date).days
 
 
 # Connect and fetch data from psql
@@ -78,9 +80,6 @@ activities_ready["start_date_current_year"] = activities_ready["start_date"].app
 )
 
 activities_ready["CURRENT_YEAR"] = current_year
-activities_ready[
-    ["start_year", "start_date", "start_date_current_year", "CURRENT_YEAR"]
-]
 
 
 # Creating df of annual summaries
@@ -114,12 +113,42 @@ annual_cycling_viz = annual_cycling.rename(columns=col_rename_dict)
 activities_viz = activities_ready.copy()
 activities_viz["start_date"] = activities_viz["start_date"].dt.strftime("%B %d, %Y")
 activities_viz["sport_type"] = activities_viz["sport_type"].replace(activity_mapping)
-activities_viz = activities_viz[columns_shorter]
 activities_viz = activities_viz.rename(columns=col_rename_dict)
 
 
+# Set templates
+pio.templates.default = "simple_white"
+
+# Set styles
+tab_style = {"font_size": "1.1rem"}
+selected_tab_style = {
+    "font_size": "1.1rem",
+    "fontWeight": "bold",
+}
+
 # Creating graphs
-pio.templates.default = "simple_white"  # # set plotly template
+
+# Last activity cards
+
+metrics = [
+    "Distance [km]",
+    "Elevation [m]",
+    "Avg. speed [km/h]",
+    "Max. speed [km/h]",
+    "Wt. avg. watts",
+    "Max. watts",
+    "Avg. cadence [rpm]",
+    "Temperatur °C",
+]
+cards = [
+    get_metric_card(
+        df=activities_viz,
+        metric=metric,
+        sport_type=activities_viz.head(1)["Type"].iloc[0],
+        reference_year=current_year,
+    )
+    for metric in metrics
+]
 
 # Line graph of cumulative distance (current year)
 fig_annual_cumsum = px.line(
@@ -167,6 +196,7 @@ fig_annual_cumsum.update_layout(
     ),
 )
 
+# NOTE DEPRECATED
 # fig_annual_cumsum.add_scatter(
 #     x=goal_dates,  # The date range for the goal
 #     y=goal_distances,  # The cumulative goal distance
@@ -215,14 +245,22 @@ app.layout = html.Div(
                                 value="lifetime",
                                 children=[
                                     dcc.Tab(
-                                        label="Activities (lifetime)", value="lifetime"
+                                        label="Activities (lifetime)",
+                                        value="lifetime",
+                                        style=tab_style,
+                                        selected_style=selected_tab_style,
                                     ),
                                     dcc.Tab(
-                                        label="Activities (last one)", value="last"
+                                        label="Last activity",
+                                        value="last",
+                                        style=tab_style,
+                                        selected_style=selected_tab_style,
                                     ),
                                     dcc.Tab(
                                         label="Annual cycling overview",
                                         value="annual_overview",
+                                        style=tab_style,
+                                        selected_style=selected_tab_style,
                                     ),
                                 ],
                                 # tabs styling: horizontal + allow horizontal scroll if many tabs
@@ -305,7 +343,7 @@ app.layout = html.Div(
 )
 def render_content(tab):
     if tab == "last":
-        # Content for the first tab
+
         return html.Div(
             [
                 html.Iframe(
@@ -315,19 +353,23 @@ def render_content(tab):
                     width="100%",  # Width of the map
                     height="600",  # Height of the map
                 ),
-                dash_table.DataTable(
-                    id="table_activities",
-                    columns=[{"name": i, "id": i} for i in activities_viz.columns],
-                    data=activities_viz.head(1).to_dict("records"),
-                    style_table={"width": "100%", "margin": "auto"},
-                    style_cell={"textAlign": "right"},
-                    style_header={"fontWeight": "bold"},
-                    # Enable sorting, filtering, and pagination
-                    sort_action="native",
-                    # filter_action="native",
-                    page_action="native",
-                    page_size=100,  # Show 5 row sper page
+                dbc.Row(
+                    [dbc.Col(card, width="auto") for card in cards], justify="around"
                 ),
+                # NOTE DEPRECATED TABLE
+                # dash_table.DataTable(
+                #     id="table_activities",
+                #     columns=[{"name": i, "id": i} for i in activities_viz.columns],
+                #     data=activities_viz.head(1).to_dict("records"),
+                #     style_table={"width": "100%", "margin": "auto"},
+                #     style_cell={"textAlign": "right"},
+                #     style_header={"fontWeight": "bold"},
+                #     # Enable sorting, filtering, and pagination
+                #     sort_action="native",
+                #     # filter_action="native",
+                #     page_action="native",
+                #     page_size=100,  # Show 5 row sper page
+                # ),
             ]
         )
     elif tab == "lifetime":
@@ -342,8 +384,11 @@ def render_content(tab):
                 ),
                 dash_table.DataTable(
                     id="table_activities",
-                    columns=[{"name": i, "id": i} for i in activities_viz.columns],
-                    data=activities_viz.to_dict("records"),
+                    columns=[
+                        {"name": i, "id": i}
+                        for i in activities_viz[columns_shorter].columns
+                    ],
+                    data=activities_viz[columns_shorter].to_dict("records"),
                     style_table={"width": "100%", "margin": "auto"},
                     style_cell={"textAlign": "right"},
                     style_header={"fontWeight": "bold"},

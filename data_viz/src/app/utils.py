@@ -7,7 +7,10 @@ import pandas as pd
 import ast
 import logging
 import polyline
+import dash_bootstrap_components as dbc
+from dash import html
 import plotly.graph_objects as go
+from dash import dcc
 import folium
 
 # Set up logging
@@ -15,22 +18,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load env variables
-# Load env variables
 dotenv_path = find_dotenv()
 load_dotenv(dotenv_path)
 
-
-columns_shorter = [
-    "start_date",
-    "sport_type",
-    "name",
-    "distance",
-    "moving_time",
-    # "elapsed_time",
-    "total_elevation_gain",
-    "average_speed",
-    "max_speed",
-]
 
 # Columns for dash
 columns_short = [
@@ -64,9 +54,20 @@ columns_short = [
     # "summary_polyline",
 ]
 
+columns_shorter = [
+    "Date",
+    "Type",
+    "Name",
+    "Distance [km]",
+    "Moving time",
+    "Elevation [m]",
+    "Avg. speed [km/h]",
+    "Max. speed [km/h]",
+    "Wt. avg. watts",
+]
+
 col_rename_dict = {
     "start_date": "Date",
-    "activities_type": "Type",
     "sport_type": "Type",
     "name": "Name",
     "total_distance": "Distance [km]",
@@ -78,13 +79,33 @@ col_rename_dict = {
     "max_speed": "Max. speed [km/h]",
     "n_activities": "Activities (n)",
     "average_speed_weighted": "Wt. avg. speed [km/h]",
+    "weighted_average_watts": "Wt. avg. watts",
+    "max_watts": "Max. watts",
+    "average_cadence": "Avg. cadence [rpm]",
+    "average_temp": "Temperatur °C",
 }
 
-# TODO is mapped two times (see also legend below)
+# TODO sport_type is mapped two times (see also legend below)
 activity_mapping = {
     "Ride": "Road bike",
     "MountainBikeRide": "MTB",
 }
+
+
+def get_sport_type_color(sport_type):
+    """
+    Returns a hex color string for the given sport_type.
+    """
+    if sport_type == "Ride" or sport_type == "Road bike":
+        return "#1f78b4"
+    elif sport_type == "MountainBikeRide" or sport_type == "MTB":
+        return "#ff7f00"
+    elif sport_type == "Hike":
+        return "#33a02c"
+    elif sport_type == "VirtualRide":
+        return "#6a3d9a"
+    else:
+        return "#e31a1c"
 
 
 def get_engine():
@@ -261,20 +282,18 @@ def generate_folium_map(
         sport_type = activity_data["sport_type"]
 
         # Determine the color based on sport type
+        color = get_sport_type_color(sport_type)
+
+        # TODO wrap lines below in own function
         if sport_type == "Ride":
-            color = "#1f78b4"
             label = "Road bike"
         elif sport_type == "MountainBikeRide":
-            color = "#ff7f00"
             label = "MTB"
         elif sport_type == "Hike":
-            color = "#33a02c"
             label = sport_type
         elif sport_type == "VirtualRide":
-            color = "#6a3d9a"
             label = sport_type
         else:
-            color = "#e31a1c"
             label = "Other"
 
         # Add the color and label to our legend dictionary if it's not already there
@@ -361,3 +380,82 @@ def convert_units(df, rounding_digits=0):
     df["total_elevation_gain"] = round(df["total_elevation_gain"], rounding_digits)
 
     return df
+
+
+def get_metric_card(df, metric, sport_type, reference_year):
+    """
+    Returns a dbc.Card for a single metric.
+    - df: DataFrame containing all activities
+    - metric: column name (str)
+    - sport_type: type of activitiy to used correct mean value (str)
+    - reference_year: reference year used for comapriosn
+    """
+
+    df = df.query("start_year == @reference_year")
+    df = df.query("Type == @sport_type")
+    value = df.iloc[0][metric]
+    avg_value = df[metric].mean()
+    delta = value - avg_value
+    color = get_sport_type_color(sport_type)
+
+    return dbc.Card(
+        [
+            dbc.CardHeader(
+                metric.replace("_", " "),
+                style={"backgroundColor": color, "color": "white"},
+            ),
+            dbc.CardBody(
+                [
+                    html.H4(
+                        f"{value:.1f} (avg. {avg_value:.1f})",
+                        className="card-title",
+                        style={"fontSize": "1.2rem", "margin": "0.2rem"},
+                    ),
+                    html.H6(
+                        f"Δ {delta:+.1f}",
+                        style={
+                            "color": "gray",
+                            "fontSize": "0.8rem",
+                            "margin": "0.2rem",
+                        },
+                    ),
+                ]
+            ),
+        ],
+        className="mb-2",
+        style={"width": "100%"},
+    )
+
+
+def get_speedometer(metric, df):
+    value = df.iloc[0][metric]
+    avg_value = df[metric].mean()
+    max_value = max(value, avg_value) * 1.2
+
+    fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number+delta",
+            value=value,
+            delta={
+                "reference": avg_value,
+                "increasing": {"color": "green"},
+                "decreasing": {"color": "red"},
+            },
+            gauge={
+                "axis": {"range": [None, max_value]},
+                "steps": [
+                    {"range": [0, avg_value], "color": "lightgray"},
+                    {"range": [avg_value, max_value], "color": "gray"},
+                ],
+                "threshold": {
+                    "line": {"color": "blue", "width": 4},
+                    "thickness": 0.75,
+                    "value": avg_value,
+                },
+            },
+            title={"text": metric.replace("_", " ").title()},
+        )
+    )
+
+    fig.update_layout(height=250, margin=dict(t=40, b=0, l=0, r=0))
+    return dcc.Graph(figure=fig)
