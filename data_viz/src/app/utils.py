@@ -459,3 +459,23 @@ def get_speedometer(metric, df):
 
     fig.update_layout(height=250, margin=dict(t=40, b=0, l=0, r=0))
     return dcc.Graph(figure=fig)
+
+
+def update_date_axis(fig, start_date, end_date, freq):
+    fig.update_layout(
+        xaxis=dict(
+            title=None,
+            range=[start_date, end_date],  # Full year range on x-axis
+            tickformat="%b",  # Show month abbreviations on the x-axis
+            tickmode="array",  # Specify custom ticks
+            tickvals=pd.date_range(
+                start=start_date,
+                end=end_date,
+                freq=freq,
+            ),  # First of every month
+            ticktext=[
+                date.strftime("%b")
+                for date in pd.date_range(start=start_date, end=end_date, freq=freq)
+            ],  # Month names
+        )
+    )

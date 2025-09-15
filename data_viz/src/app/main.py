@@ -16,6 +16,7 @@ from app.utils import (
     convert_units,
     generate_folium_map,
     get_metric_card,
+    update_date_axis,
     get_speedometer,
 )
 
@@ -36,6 +37,13 @@ days_in_year = (end_date - start_date).days + 1
 # goal_dates = pd.date_range(start_date, end_date, freq="D")
 # goal_distances = daily_distance_goal * (goal_dates - start_date).days
 
+# try:
+#     activities = pd.read_csv("src/app/activities.csv", index_col="activity_id")
+# except:
+#     activities = pd.read_csv(
+#         "data_fetch/src/app/activities.csv", index_col="activity_id"
+#     )
+
 
 # Connect and fetch data from psql
 engine = get_engine()
@@ -50,9 +58,6 @@ activities = fetch_data(
     "SELECT * FROM activities",
     "activity_id",
 )
-
-# NOTE only for local development import
-# activities = pd.read_csv("data_fetch/src/app/activities.csv", index_col="activity_id")
 
 activities = activities.drop_duplicates()
 activities["start_date"] = pd.to_datetime(activities["start_date"])
@@ -170,23 +175,7 @@ fig_annual_cumsum = px.line(
 #     mode="lines",
 #     line=dict(color=px.colors.sequential.Blues[-1]),
 # )
-
 fig_annual_cumsum.update_layout(
-    xaxis=dict(
-        title=None,
-        range=[start_date, end_date],  # Full year range on x-axis
-        tickformat="%b",  # Show month abbreviations on the x-axis
-        tickmode="array",  # Specify custom ticks
-        tickvals=pd.date_range(
-            start=start_date,
-            end=end_date,
-            freq="MS",
-        ),  # First of every month
-        ticktext=[
-            date.strftime("%b")
-            for date in pd.date_range(start=start_date, end=end_date, freq="MS")
-        ],  # Month names
-    ),
     yaxis=dict(title=f"Annual cumulative Distance (km)"),
     legend=dict(
         x=0.03,  # Place at the right side of the plot area
@@ -195,6 +184,8 @@ fig_annual_cumsum.update_layout(
         yanchor="top",  # Anchor the legend to the bottom
     ),
 )
+update_date_axis(fig_annual_cumsum, start_date, end_date, freq="MS")
+
 
 # NOTE DEPRECATED
 # fig_annual_cumsum.add_scatter(
@@ -228,6 +219,7 @@ generate_folium_map(
 app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
+    suppress_callback_exceptions=True,
 )
 server = app.server  # Expose the Flask server instance for WSGI servers
 app.layout = html.Div(
@@ -259,6 +251,12 @@ app.layout = html.Div(
                                     dcc.Tab(
                                         label="Annual cycling overview",
                                         value="annual_overview",
+                                        style=tab_style,
+                                        selected_style=selected_tab_style,
+                                    ),
+                                    dcc.Tab(
+                                        label="Metrics comparison",
+                                        value="metrics_comparison",
                                         style=tab_style,
                                         selected_style=selected_tab_style,
                                     ),
@@ -315,7 +313,7 @@ app.layout = html.Div(
                 dbc.Row(
                     html.P(
                         [
-                            "Source code dashboard: ",
+                            "Source code",
                             html.A(
                                 "https://github.com/TobiasAnh/myactivities",
                                 href="https://github.com/TobiasAnh/myactivities",
@@ -401,7 +399,6 @@ def render_content(tab):
             ]
         )
     elif tab == "annual_overview":
-        # Placeholder content for the new tab
         return html.Div(
             [
                 dcc.Graph(
@@ -420,10 +417,80 @@ def render_content(tab):
                     # sort_action="native",
                     # filter_action="native",
                     page_action="native",
-                    page_size=5,  # Show 5 rows per page
+                    page_size=5,
                 ),
             ]
         )
+    elif tab == "metrics_comparison":
+        return html.Div(
+            [
+                dbc.Row(
+                    [
+                        dbc.Col(
+                            [
+                                html.Label(
+                                    "Select Y-value", style={"fontWeight": "bold"}
+                                ),
+                                dcc.Dropdown(
+                                    id="metrics_y_dropdown",
+                                    options=[{"label": m, "value": m} for m in metrics],
+                                    value="Elevation [m]",
+                                    clearable=False,
+                                ),
+                            ],
+                            width=6,  # takes half the row on medium+ screens, full width on small
+                        ),
+                        dbc.Col(
+                            [
+                                html.Label(
+                                    "Select X-value", style={"fontWeight": "bold"}
+                                ),
+                                dcc.Dropdown(
+                                    id="metrics_x_dropdown",
+                                    options=[{"label": m, "value": m} for m in metrics],
+                                    value="Distance [km]",
+                                    clearable=False,
+                                ),
+                            ],
+                            width=6,
+                        ),
+                    ],
+                    justify="center",  # horizontally center the row
+                    className="mb-3",  # margin below
+                ),
+                dcc.Graph(id="fig_metrics_comparison"),
+            ]
+        )
+
+
+@app.callback(
+    dash.dependencies.Output("fig_metrics_comparison", "figure"),
+    [
+        dash.dependencies.Input("metrics_y_dropdown", "value"),
+        dash.dependencies.Input("metrics_x_dropdown", "value"),
+    ],
+)
+def update_metrics_graph(y_metric, x_metric):
+    df = activities_viz.query("Type == 'Road bike'")
+    fig_metrics_comparison = px.scatter(
+        df,
+        x=x_metric,
+        y=y_metric,
+        # range_x=[
+        #     df[x_metric].min(),
+        #     df[x_metric].max(),
+        # ],
+        # range_y=[
+        #     df[y_metric].min(),
+        #     df[y_metric].max(),
+        # ],
+        # # color="Temperatur °C",
+        # color_discrete_sequence=px.colors.qualitative.G10,
+        hover_data=["Date", "Name"],
+    )
+    fig_metrics_comparison.update_traces(mode="markers")
+
+    return fig_metrics_comparison
 
 
 # Run the app
