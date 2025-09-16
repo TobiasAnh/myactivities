@@ -7,7 +7,6 @@ import logging
 from dash import dcc, html, dash_table
 from datetime import datetime
 from app.utils import (
-    columns_short,
     columns_shorter,
     col_rename_dict,
     activity_mapping,
@@ -26,7 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 # Get current year and aimed distance goal
-current_year = datetime.now().year
+now = datetime.now()
+timestamp = now.strftime("%Y-%m-%d %H:%M")
+current_year = now.year
 start_date = pd.to_datetime(f"{current_year}-01-01")
 end_date = pd.to_datetime(f"{current_year}-12-31")
 days_in_year = (end_date - start_date).days + 1
@@ -37,13 +38,8 @@ days_in_year = (end_date - start_date).days + 1
 # goal_dates = pd.date_range(start_date, end_date, freq="D")
 # goal_distances = daily_distance_goal * (goal_dates - start_date).days
 
-# try:
-#     activities = pd.read_csv("src/app/activities.csv", index_col="activity_id")
-# except:
-#     activities = pd.read_csv(
-#         "data_fetch/src/app/activities.csv", index_col="activity_id"
-#     )
 
+# activities = pd.read_csv("data_fetch/src/app/activities.csv", index_col="activity_id")
 
 # Connect and fetch data from psql
 engine = get_engine()
@@ -119,7 +115,7 @@ activities_viz = activities_ready.copy()
 activities_viz["start_date"] = activities_viz["start_date"].dt.strftime("%B %d, %Y")
 activities_viz["sport_type"] = activities_viz["sport_type"].replace(activity_mapping)
 activities_viz = activities_viz.rename(columns=col_rename_dict)
-
+activities_viz["start_date_local"] = pd.to_datetime(activities_viz["start_date_local"])
 
 # Set templates
 pio.templates.default = "simple_white"
@@ -270,12 +266,10 @@ app.layout = html.Div(
                                     "whiteSpace": "nowrap",
                                 },
                             ),
-                            # keep the tabs visually separated from the content
                             style={"backgroundColor": "white", "padding": "0.25rem"},
                         ),
                         width=12,
                     ),
-                    # ensure row does not grow/shrink (so the content area is the scroller)
                     style={"flex": "0 0 auto"},
                 ),
                 # Scrollable content area — this is the only area that scrolls
@@ -298,7 +292,6 @@ app.layout = html.Div(
                 ),
             ],
             fluid=True,
-            # crucial: make this container fill the viewport minus the fixed bottom bar
             style={
                 "display": "flex",
                 "flexDirection": "column",
@@ -313,7 +306,7 @@ app.layout = html.Div(
                 dbc.Row(
                     html.P(
                         [
-                            "Source code",
+                            f"Last update: {timestamp} | Source code ",
                             html.A(
                                 "https://github.com/TobiasAnh/myactivities",
                                 href="https://github.com/TobiasAnh/myactivities",
@@ -458,7 +451,14 @@ def render_content(tab):
                     justify="center",  # horizontally center the row
                     className="mb-3",  # margin below
                 ),
-                dcc.Graph(id="fig_metrics_comparison"),
+                html.Div(
+                    dcc.Graph(id="fig_metrics_comparison"),
+                    style={
+                        "width": "100%",  # responsive width
+                        "maxWidth": "900px",  # maximum width
+                        "margin": "0 auto",  # center horizontally
+                    },
+                ),
             ]
         )
 
@@ -471,21 +471,12 @@ def render_content(tab):
     ],
 )
 def update_metrics_graph(y_metric, x_metric):
-    df = activities_viz.query("Type == 'Road bike'")
+    df = activities_viz
     fig_metrics_comparison = px.scatter(
         df,
         x=x_metric,
         y=y_metric,
-        # range_x=[
-        #     df[x_metric].min(),
-        #     df[x_metric].max(),
-        # ],
-        # range_y=[
-        #     df[y_metric].min(),
-        #     df[y_metric].max(),
-        # ],
-        # # color="Temperatur °C",
-        # color_discrete_sequence=px.colors.qualitative.G10,
+        color="Type",
         hover_data=["Date", "Name"],
     )
     fig_metrics_comparison.update_traces(mode="markers")
