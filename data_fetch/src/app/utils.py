@@ -7,7 +7,7 @@ import time
 import pytz
 from dotenv import load_dotenv
 from datetime import datetime
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import ProgrammingError
 
 # Set up logging
@@ -79,6 +79,12 @@ def get_strava_authorization_url(
     }
     request_url = requests.Request("GET", base_url, params=params).prepare().url
     return request_url
+
+
+def get_column_names(engine, table):
+    engine = get_engine()
+    inspector = inspect(engine)
+    return [col["name"] for col in inspector.get_columns(table)]
 
 
 def get_athlete_info(access_token):

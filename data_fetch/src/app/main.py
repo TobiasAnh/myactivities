@@ -10,6 +10,7 @@ from app.utils import (
     get_athlete_info,
     get_latest_datetime,
     get_activities,
+    get_column_names,
 )
 
 
@@ -40,6 +41,9 @@ def main(mode):
     else:
         logger.info("Access token not expired ...  ")
 
+    # Set engine
+    engine = get_engine()
+
     # Fetch athlete data
     athlete = get_athlete_info(ACCESS_TOKEN)
 
@@ -47,7 +51,6 @@ def main(mode):
     df = pd.DataFrame.from_dict(athlete, orient="index").T
     df = df.rename(columns={"id": "athlete_id"})
     df = df.set_index("athlete_id")
-    engine = get_engine()
     df.to_sql(
         "athlete",
         con=engine,
@@ -81,8 +84,11 @@ def main(mode):
         index_col="activity_id",
     )
 
+    # Assure correct database schema
+    columns = get_column_names(engine, "activities")
+    df = df[[c for c in df.columns if c in columns]]
+
     # Move date to postgres database
-    engine = get_engine()
     try:
         df.to_sql(
             "activities",
